@@ -12,7 +12,7 @@
             color: #fff; 
             min-height: 100vh; 
             margin: 0; 
-            padding: 40px 20px;
+            padding: 40px 20px 100px 20px; /* Extra padding at bottom for tracker bar */
             display: flex;
             justify-content: center;
         }
@@ -29,7 +29,6 @@
             font-size: 28px;
         }
 
-        /* Top Input Bar */
         .search-bar { 
             display: flex; 
             gap: 10px; 
@@ -65,7 +64,6 @@
         }
         .fetch-btn:hover { background: #dc2626; }
 
-        /* Side-by-Side Result Surface */
         .video-surface { 
             display: none; 
             gap: 24px;
@@ -147,7 +145,6 @@
             outline: none;
         }
 
-        /* Inline 3-in-1 Radio Buttons */
         .radio-group {
             display: flex;
             gap: 10px;
@@ -194,8 +191,64 @@
             transition: background 0.2s;
             margin-top: 4px;
         }
-
         .download-btn:hover { background: #16a34a; }
+        .download-btn:disabled { background: #64748b; cursor: not-allowed; }
+
+        /* Floating Bottom Download Status Bar */
+        #downloadStatusBar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: #1e293b;
+            border-top: 1px solid #334155;
+            padding: 16px 24px;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: #f8fafc;
+        }
+
+        .cancel-btn {
+            background: #ef4444;
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .cancel-btn:hover { background: #dc2626; }
+
+        .progress-track {
+            width: 100%;
+            background: #334155;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #38bdf8;
+            transition: width 0.1s linear;
+        }
 
         @media (max-width: 650px) {
             .video-surface {
@@ -218,13 +271,11 @@
     </div>
 
     <div id="videoSurface" class="video-surface">
-        <!-- Left Side: Thumbnail and Title -->
         <div class="media-left">
             <img id="thumb" src="" alt="Thumbnail" />
             <div id="videoTitle" class="video-title"></div>
         </div>
 
-        <!-- Right Side: Controls and Download Button -->
         <div class="controls-right">
             <div>
                 <span class="section-label">Format</span>
@@ -234,7 +285,6 @@
                 </div>
             </div>
 
-            <!-- MP4 Dropdown Options -->
             <div id="videoQualityGroup">
                 <span class="section-label">Quality</span>
                 <select id="mp4Quality" class="select-box">
@@ -245,7 +295,6 @@
                 </select>
             </div>
 
-            <!-- MP3 3-in-1 Line Radio Options -->
             <div id="audioQualityGroup" style="display: none;">
                 <span class="section-label">Bitrate</span>
                 <div class="radio-group">
@@ -266,9 +315,21 @@
     </div>
 </div>
 
+<!-- Floating Bottom Live Status Bar -->
+<div id="downloadStatusBar">
+    <div class="status-header">
+        <span id="statusText">Preparing download... (0 MB / Calculating...)</span>
+        <button class="cancel-btn" onclick="cancelDownload()" title="Cancel download">✕</button>
+    </div>
+    <div class="progress-track">
+        <div id="progressFill" class="progress-fill"></div>
+    </div>
+</div>
+
 <script>
     let activeVideo = {};
     let currentMode = 'mp4';
+    let abortController = null;
 
     async function fetchVideoInfo() {
         const url = document.getElementById('ytUrl').value.trim();
@@ -310,7 +371,7 @@
         }
     }
 
-    function startDownload() {
+    async function startDownload() {
         let selectedQuality;
         if (currentMode === 'mp4') {
             selectedQuality = document.getElementById('mp4Quality').value;
@@ -319,7 +380,93 @@
         }
 
         const downloadUrl = `/api/convert?url=${encodeURIComponent(activeVideo.url)}&title=${encodeURIComponent(activeVideo.title)}&mode=${currentMode}&quality=${selectedQuality}`;
-        window.location.href = downloadUrl;
+        
+        // Setup UI for download process
+        const statusBar = document.getElementById('downloadStatusBar');
+        const statusText = document.getElementById('statusText');
+        const progressFill = document.getElementById('progressFill');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        statusBar.style.display = 'flex';
+        progressFill.style.width = '0%';
+        statusText.innerText = 'Connecting to stream...';
+        downloadBtn.disabled = true;
+
+        abortController = new AbortController();
+
+        try {
+            const response = await fetch(downloadUrl, { signal: abortController.signal });
+            if (!response.ok) throw new Error('Server conversion failed.');
+
+            const contentLength = response.headers.get('content-length');
+            const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+
+            const reader = response.body.getReader();
+            let receivedBytes = 0;
+            let chunks = [];
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                chunks.push(value);
+                receivedBytes += value.length;
+
+                const receivedMB = (receivedBytes / (1024 * 1024)).toFixed(1);
+
+                if (totalBytes > 0) {
+                    const percent = Math.min(100, Math.round((receivedBytes / totalBytes) * 100));
+                    const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
+                    progressFill.style.width = percent + '%';
+                    statusText.innerText = `Downloading: ${receivedMB} MB / ${totalMB} MB (${percent}%)`;
+                } else {
+                    // Fallback tracker if header size isn't sent instantly
+                    progressFill.style.width = '50%';
+                    statusText.innerText = `Downloading: ${receivedMB} MB received...`;
+                }
+            }
+
+            // Assemble file blob and auto-trigger save prompt on mobile/desktop
+            const blob = new Blob(chunks);
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            
+            // Extract filename from server Content-Disposition or build fallback name
+            const disposition = response.headers.get('content-disposition');
+            let filename = `${activeVideo.title.replace(/[^a-zA-Z0-9 _-]/g, "")}_${selectedQuality}.${currentMode}`;
+            if (disposition && disposition.includes('filename=')) {
+                const match = disposition.match(/filename="(.+?)"/);
+                if (match) filename = match[1];
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+
+            statusText.innerText = 'Download complete!';
+            progressFill.style.width = '100%';
+            setTimeout(() => { statusBar.style.display = 'none'; }, 3000);
+
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                statusText.innerText = 'Download cancelled.';
+            } else {
+                statusText.innerText = 'Error downloading file.';
+            }
+            setTimeout(() => { statusBar.style.display = 'none'; }, 2500);
+        } finally {
+            downloadBtn.disabled = false;
+            abortController = null;
+        }
+    }
+
+    function cancelDownload() {
+        if (abortController) {
+            abortController.abort();
+        }
     }
 </script>
 
