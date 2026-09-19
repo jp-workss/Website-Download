@@ -12,7 +12,7 @@
             color: #fff; 
             min-height: 100vh; 
             margin: 0; 
-            padding: 40px 20px 100px 20px; /* Extra padding at bottom for tracker bar */
+            padding: 40px 20px;
             display: flex;
             justify-content: center;
         }
@@ -69,6 +69,10 @@
             gap: 24px;
             align-items: flex-start;
             padding-top: 10px;
+            background: #1e293b;
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid #334155;
         }
 
         .media-left {
@@ -110,7 +114,7 @@
         .format-tabs { 
             display: flex; 
             gap: 10px; 
-            background: #1e293b; 
+            background: #0f172a; 
             padding: 6px; 
             border-radius: 8px; 
             border: 1px solid #334155;
@@ -138,7 +142,7 @@
             padding: 12px;
             border-radius: 8px;
             border: 1px solid #334155;
-            background: #1e293b;
+            background: #0f172a;
             color: #fff;
             font-size: 15px;
             cursor: pointer;
@@ -156,7 +160,7 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            background: #1e293b;
+            background: #0f172a;
             border: 1px solid #334155;
             padding: 12px 8px;
             border-radius: 8px;
@@ -183,7 +187,8 @@
             padding: 14px; 
             border: none; 
             border-radius: 8px; 
-            background: #22c55e; 
+            background: #1e293b; 
+            border: 1px solid #334155;
             color: #fff; 
             font-weight: bold; 
             cursor: pointer; 
@@ -191,23 +196,19 @@
             transition: background 0.2s;
             margin-top: 4px;
         }
-        .download-btn:hover { background: #16a34a; }
-        .download-btn:disabled { background: #64748b; cursor: not-allowed; }
+        .download-btn:hover { background: #334155; }
+        .download-btn:disabled { background: #334155; opacity: 0.7; cursor: not-allowed; }
 
-        /* Floating Bottom Download Status Bar */
+        /* Inline Download Box (Matching Reference Image) */
         #downloadStatusBar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: #1e293b;
-            border-top: 1px solid #334155;
-            padding: 16px 24px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 16px;
             display: none; /* Hidden by default */
             flex-direction: column;
-            gap: 8px;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
-            z-index: 1000;
+            gap: 12px;
+            margin-top: 4px;
         }
 
         .status-header {
@@ -219,27 +220,30 @@
             color: #f8fafc;
         }
 
+        .status-file-info {
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
         .cancel-btn {
-            background: #ef4444;
+            background: transparent;
             border: none;
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
+            color: #94a3b8;
+            font-size: 18px;
             font-weight: bold;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            transition: color 0.2s;
         }
-        .cancel-btn:hover { background: #dc2626; }
+        .cancel-btn:hover { color: #ef4444; }
 
         .progress-track {
             width: 100%;
             background: #334155;
-            height: 8px;
-            border-radius: 4px;
+            height: 6px;
+            border-radius: 3px;
             overflow: hidden;
         }
 
@@ -248,6 +252,13 @@
             height: 100%;
             background: #38bdf8;
             transition: width 0.1s linear;
+        }
+
+        .progress-percentage {
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #f8fafc;
         }
 
         @media (max-width: 650px) {
@@ -286,7 +297,7 @@
             </div>
 
             <div id="videoQualityGroup">
-                <span class="section-label">Quality</span>
+                <span class="section-label">Video Quality</span>
                 <select id="mp4Quality" class="select-box">
                     <option value="1080p" selected>1080p (Full HD)</option>
                     <option value="720p">720p (HD)</option>
@@ -310,19 +321,23 @@
                 </div>
             </div>
 
-            <button id="downloadBtn" class="download-btn" onclick="startDownload()">Download File</button>
-        </div>
-    </div>
-</div>
+            <button id="downloadBtn" class="download-btn" onclick="startDownload()">Download</button>
 
-<!-- Floating Bottom Live Status Bar -->
-<div id="downloadStatusBar">
-    <div class="status-header">
-        <span id="statusText">Preparing download... (0 MB / Calculating...)</span>
-        <button class="cancel-btn" onclick="cancelDownload()" title="Cancel download">✕</button>
-    </div>
-    <div class="progress-track">
-        <div id="progressFill" class="progress-fill"></div>
+            <!-- Inline Download Progress Box -->
+            <div id="downloadStatusBar">
+                <div class="status-header">
+                    <span id="statusTitle">Downloading...</span>
+                    <div>
+                        <span id="statusSize" class="status-file-info">0 MB / --</span>
+                        <button class="cancel-btn" onclick="cancelDownload()" title="Cancel">✕</button>
+                    </div>
+                </div>
+                <div class="progress-track">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <div id="progressPercentage" class="progress-percentage">0%</div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -381,15 +396,19 @@
 
         const downloadUrl = `/api/convert?url=${encodeURIComponent(activeVideo.url)}&title=${encodeURIComponent(activeVideo.title)}&mode=${currentMode}&quality=${selectedQuality}`;
         
-        // Setup UI for download process
+        // Setup UI state
         const statusBar = document.getElementById('downloadStatusBar');
-        const statusText = document.getElementById('statusText');
+        const statusSize = document.getElementById('statusSize');
+        const statusTitle = document.getElementById('statusTitle');
         const progressFill = document.getElementById('progressFill');
+        const progressPercentage = document.getElementById('progressPercentage');
         const downloadBtn = document.getElementById('downloadBtn');
 
         statusBar.style.display = 'flex';
         progressFill.style.width = '0%';
-        statusText.innerText = 'Connecting to stream...';
+        progressPercentage.innerText = '0%';
+        statusTitle.innerText = 'Downloading...';
+        statusSize.innerText = '0 MB / --';
         downloadBtn.disabled = true;
 
         abortController = new AbortController();
@@ -418,21 +437,20 @@
                     const percent = Math.min(100, Math.round((receivedBytes / totalBytes) * 100));
                     const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
                     progressFill.style.width = percent + '%';
-                    statusText.innerText = `Downloading: ${receivedMB} MB / ${totalMB} MB (${percent}%)`;
+                    progressPercentage.innerText = percent + '%';
+                    statusSize.innerText = `${receivedMB} MB / ${totalMB} MB`;
                 } else {
-                    // Fallback tracker if header size isn't sent instantly
                     progressFill.style.width = '50%';
-                    statusText.innerText = `Downloading: ${receivedMB} MB received...`;
+                    progressPercentage.innerText = '...';
+                    statusSize.innerText = `${receivedMB} MB / --`;
                 }
             }
 
-            // Assemble file blob and auto-trigger save prompt on mobile/desktop
             const blob = new Blob(chunks);
             const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = blobUrl;
             
-            // Extract filename from server Content-Disposition or build fallback name
             const disposition = response.headers.get('content-disposition');
             let filename = `${activeVideo.title.replace(/[^a-zA-Z0-9 _-]/g, "")}_${selectedQuality}.${currentMode}`;
             if (disposition && disposition.includes('filename=')) {
@@ -446,15 +464,17 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(blobUrl);
 
-            statusText.innerText = 'Download complete!';
+            statusTitle.innerText = 'Complete';
             progressFill.style.width = '100%';
+            progressPercentage.innerText = '100%';
             setTimeout(() => { statusBar.style.display = 'none'; }, 3000);
 
         } catch (err) {
             if (err.name === 'AbortError') {
-                statusText.innerText = 'Download cancelled.';
+                statusTitle.innerText = 'Cancelled';
+                statusSize.innerText = '0 MB / --';
             } else {
-                statusText.innerText = 'Error downloading file.';
+                statusTitle.innerText = 'Failed';
             }
             setTimeout(() => { statusBar.style.display = 'none'; }, 2500);
         } finally {
