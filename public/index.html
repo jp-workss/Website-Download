@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #0f172a; 
+            color: #fff; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 850px;
+        }
+
+        h2 { 
+            text-align: center; 
+            margin-top: 0; 
+            margin-bottom: 25px; 
+            font-size: 28px;
+        }
+
+        /* Top Input Bar */
+        .search-bar { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 30px; 
+        }
+
+        input[type="text"] { 
+            flex: 1; 
+            padding: 14px 18px; 
+            border-radius: 8px; 
+            border: 1px solid #334155; 
+            background: #1e293b; 
+            color: #fff; 
+            font-size: 16px; 
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: #38bdf8;
+        }
+
+        .fetch-btn { 
+            padding: 14px 24px; 
+            border: none; 
+            border-radius: 8px; 
+            background: #ef4444; 
+            color: #fff; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 16px; 
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+        .fetch-btn:hover { background: #dc2626; }
+
+        /* Side-by-Side Result Surface */
+        .video-surface { 
+            display: none; 
+            gap: 24px;
+            align-items: flex-start;
+            padding-top: 10px;
+        }
+
+        .media-left {
+            flex: 1;
+            max-width: 360px;
+        }
+
+        .media-left img { 
+            width: 100%; 
+            border-radius: 10px; 
+            display: block;
+            margin-bottom: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .video-title { 
+            font-size: 16px; 
+            line-height: 1.4; 
+            color: #f8fafc; 
+            font-weight: 600;
+        }
+
+        .controls-right {
+            flex: 1.2;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .section-label { 
+            font-size: 13px; 
+            color: #94a3b8; 
+            margin-bottom: 6px; 
+            display: block; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .format-tabs { 
+            display: flex; 
+            gap: 10px; 
+            background: #1e293b; 
+            padding: 6px; 
+            border-radius: 8px; 
+            border: 1px solid #334155;
+        }
+
+        .tab-btn { 
+            flex: 1; 
+            padding: 10px; 
+            border: none; 
+            background: transparent; 
+            color: #94a3b8; 
+            font-weight: bold; 
+            cursor: pointer; 
+            border-radius: 6px; 
+            transition: all 0.2s; 
+        }
+
+        .tab-btn.active { 
+            background: #38bdf8; 
+            color: #0f172a; 
+        }
+
+        .select-box {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #1e293b;
+            color: #fff;
+            font-size: 15px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        /* Inline 3-in-1 Radio Buttons */
+        .radio-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .radio-label {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 12px 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #cbd5e1;
+            transition: all 0.2s;
+        }
+
+        .radio-label:has(input:checked) {
+            border-color: #38bdf8;
+            background: #0284c7;
+            color: #fff;
+        }
+
+        .radio-label input[type="radio"] {
+            accent-color: #38bdf8;
+            cursor: pointer;
+        }
+
+        .download-btn { 
+            width: 100%; 
+            padding: 14px; 
+            border: none; 
+            border-radius: 8px; 
+            background: #22c55e; 
+            color: #fff; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 16px; 
+            transition: background 0.2s;
+            margin-top: 4px;
+        }
+
+        .download-btn:hover { background: #16a34a; }
+
+        @media (max-width: 650px) {
+            .video-surface {
+                flex-direction: column;
+            }
+            .media-left {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>YouTube Downloader</h2>
+
+    <div class="search-bar">
+        <input type="text" id="ytUrl" placeholder="Paste YouTube link here..." />
+        <button id="fetchBtn" class="fetch-btn" onclick="fetchVideoInfo()">Fetch Video</button>
+    </div>
+
+    <div id="videoSurface" class="video-surface">
+        <!-- Left Side: Thumbnail and Title -->
+        <div class="media-left">
+            <img id="thumb" src="" alt="Thumbnail" />
+            <div id="videoTitle" class="video-title"></div>
+        </div>
+
+        <!-- Right Side: Controls and Download Button -->
+        <div class="controls-right">
+            <div>
+                <span class="section-label">Format</span>
+                <div class="format-tabs">
+                    <button id="tabMp4" class="tab-btn active" onclick="setMode('mp4')">🎬 Video (MP4)</button>
+                    <button id="tabMp3" class="tab-btn" onclick="setMode('mp3')">🎵 Audio (MP3)</button>
+                </div>
+            </div>
+
+            <!-- MP4 Dropdown Options -->
+            <div id="videoQualityGroup">
+                <span class="section-label">Quality</span>
+                <select id="mp4Quality" class="select-box">
+                    <option value="1080p" selected>1080p (Full HD)</option>
+                    <option value="720p">720p (HD)</option>
+                    <option value="480p">480p (SD)</option>
+                    <option value="360p">360p (Low)</option>
+                </select>
+            </div>
+
+            <!-- MP3 3-in-1 Line Radio Options -->
+            <div id="audioQualityGroup" style="display: none;">
+                <span class="section-label">Bitrate</span>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="mp3Quality" value="256k"> 256k
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="mp3Quality" value="192k" checked> 192k
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="mp3Quality" value="128k"> 128k
+                    </label>
+                </div>
+            </div>
+
+            <button id="downloadBtn" class="download-btn" onclick="startDownload()">Download File</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let activeVideo = {};
+    let currentMode = 'mp4';
+
+    async function fetchVideoInfo() {
+        const url = document.getElementById('ytUrl').value.trim();
+        if (!url) return alert('Please enter a YouTube video URL');
+
+        const fetchBtn = document.getElementById('fetchBtn');
+        fetchBtn.innerText = 'Fetching...';
+        fetchBtn.disabled = true;
+
+        try {
+            const res = await fetch(`/api/info?url=${encodeURIComponent(url)}`);
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            activeVideo = { url, title: data.title };
+            document.getElementById('thumb').src = data.thumbnail;
+            document.getElementById('videoTitle').innerText = data.title;
+            document.getElementById('videoSurface').style.display = 'flex';
+        } catch (err) {
+            alert(err.message || 'Could not fetch video information');
+        } finally {
+            fetchBtn.innerText = 'Fetch Video';
+            fetchBtn.disabled = false;
+        }
+    }
+
+    function setMode(mode) {
+        currentMode = mode;
+        if (mode === 'mp4') {
+            document.getElementById('tabMp4').classList.add('active');
+            document.getElementById('tabMp3').classList.remove('active');
+            document.getElementById('videoQualityGroup').style.display = 'block';
+            document.getElementById('audioQualityGroup').style.display = 'none';
+        } else {
+            document.getElementById('tabMp3').classList.add('active');
+            document.getElementById('tabMp4').classList.remove('active');
+            document.getElementById('audioQualityGroup').style.display = 'block';
+            document.getElementById('videoQualityGroup').style.display = 'none';
+        }
+    }
+
+    function startDownload() {
+        let selectedQuality;
+        if (currentMode === 'mp4') {
+            selectedQuality = document.getElementById('mp4Quality').value;
+        } else {
+            selectedQuality = document.querySelector('input[name="mp3Quality"]:checked').value;
+        }
+
+        const downloadUrl = `/api/convert?url=${encodeURIComponent(activeVideo.url)}&title=${encodeURIComponent(activeVideo.title)}&mode=${currentMode}&quality=${selectedQuality}`;
+        window.location.href = downloadUrl;
+    }
+</script>
+
+</body>
+</html>
